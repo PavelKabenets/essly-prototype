@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -14,40 +14,93 @@ import { MenuDrawer } from '@/components/chat/MenuDrawer';
 import { TypingBubble } from '@/components/chat/TypingBubble';
 import { VoiceOverlay } from '@/components/chat/VoiceOverlay';
 import { useCheckInTrigger } from '@/hooks/useCheckInTrigger';
+import { useCurrentConversation } from '@/hooks/useConversations';
 import { useRitualScheduler } from '@/hooks/useRitualScheduler';
 import { recordUserEvent } from '@/lib/behaviorTracker';
-import { loadChat, saveChat } from '@/lib/chatStore';
 import {
-  AI_WELCOME,
-  PAST_CONVERSATIONS,
-  pickAiReply,
-  resetAiReplies,
-  type Message,
-} from '@/mock/chat';
+  getCurrentConversation,
+  setCurrentConversation,
+  startNewConversation,
+  updateCurrentMessages,
+} from '@/lib/conversations';
+import { pickAiReply, resetAiReplies, type Message } from '@/mock/chat';
 
 let nextId = 1;
 const genId = () => `${Date.now()}-${nextId++}`;
 
 const REPLY_DELAY_MS = 1100;
+const HIGHLIGHT_MS = 2400;
 
 export default function Chat() {
-  // Load persisted chat on mount; fall back to welcome message.
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const stored = loadChat();
-    return stored && stored.length > 0 ? stored : [AI_WELCOME];
-  });
+  const params = useLocalSearchParams<{ convId?: string; messageId?: string }>();
+  const conversation = useCurrentConversation();
+  const messages = conversation?.messages ?? [];
+
   const [typing, setTyping] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
+  const messageOffsets = useRef<Record<string, number>>({});
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Save chat whenever it changes
+  // Route deep-link: ?convId=…&messageId=…  → switch conversation + highlight
   useEffect(() => {
-    saveChat(messages);
-  }, [messages]);
+    if (params.convId) {
+      setCurrentConversation(params.convId);
+    }
+  }, [params.convId]);
 
-  // Scroll to bottom on new message / typing change
+  // Helper to push messages into the current conversation.
+  // Reads fresh state from the store on every call so callback identity stays stable.
+  const writeMessages = useCallback(
+    (mutator: (prev: Message[]) => Message[]) => {
+      const current = getCurrentConversation()?.messages ?? [];
+      const next = mutator(current);
+      updateCurrentMessages(next);
+    },
+    [],
+  );
+
+  const injectAiMessage = useCallback(
+    (text: string) => {
+      writeMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.from === 'ai' && last.text === text) return prev;
+        return [...prev, { id: genId(), from: 'ai', text }];
+      });
+    },
+    [writeMessages],
+  );
+
+  useRitualScheduler(injectAiMessage);
+  useCheckInTrigger(injectAiMessage);
+
+  const sendUserMessage = useCallback(
+    (text: string) => {
+      recordUserEvent(text);
+      writeMessages((prev) => [...prev, { id: genId(), from: 'user', text }]);
+      setTyping(true);
+      if (replyTimer.current) clearTimeout(replyTimer.current);
+      replyTimer.current = setTimeout(() => {
+        setTyping(false);
+        writeMessages((prev) => [
+          ...prev,
+          { id: genId(), from: 'ai', text: pickAiReply(text) },
+        ]);
+      }, REPLY_DELAY_MS);
+    },
+    [writeMessages],
+  );
+
+  // Clean up reply timer on unmount
+  useEffect(() => {
+    return () => {
+      if (replyTimer.current) clearTimeout(replyTimer.current);
+    };
+  }, []);
+
+  // Auto-scroll on new messages
   useEffect(() => {
     const t = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
@@ -55,55 +108,34 @@ export default function Chat() {
     return () => clearTimeout(t);
   }, [messages.length, typing]);
 
+  // Deep-link highlight: scroll to + briefly highlight the matched message
   useEffect(() => {
-    return () => {
-      if (replyTimer.current) clearTimeout(replyTimer.current);
-    };
-  }, []);
+    if (!params.messageId) return;
+    const id = params.messageId;
+    // Wait a tick for layout to settle
+    const timer = setTimeout(() => {
+      const y = messageOffsets.current[id];
+      if (typeof y === 'number') {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true });
+      }
+      setHighlightedId(id);
+      setTimeout(() => setHighlightedId(null), HIGHLIGHT_MS);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [params.messageId, conversation?.id]);
 
-  // Helper used by both schedulers to push an AI message into the chat.
-  const injectAiMessage = useCallback((text: string) => {
-    setMessages((prev) => {
-      // De-dupe consecutive identical AI deliveries (e.g. sample preview)
-      const last = prev[prev.length - 1];
-      if (last && last.from === 'ai' && last.text === text) return prev;
-      return [...prev, { id: genId(), from: 'ai', text }];
-    });
-  }, []);
-
-  // Deliver scheduled rituals (Morning Alignment, Evening Wind Down).
-  useRitualScheduler(injectAiMessage);
-  // Deliver behavioral mindfulness check-ins.
-  useCheckInTrigger(injectAiMessage);
-
-  const sendUserMessage = useCallback((text: string) => {
-    recordUserEvent(text);
-    setMessages((prev) => [...prev, { id: genId(), from: 'user', text }]);
-    setTyping(true);
-    if (replyTimer.current) clearTimeout(replyTimer.current);
-    replyTimer.current = setTimeout(() => {
-      setTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        { id: genId(), from: 'ai', text: pickAiReply(text) },
-      ]);
-    }, REPLY_DELAY_MS);
-  }, []);
-
-  const startNewChat = useCallback(() => {
+  const handleNewChat = useCallback(() => {
     if (replyTimer.current) clearTimeout(replyTimer.current);
     setTyping(false);
     resetAiReplies();
-    setMessages([AI_WELCOME]);
+    startNewConversation();
   }, []);
 
-  const loadConversation = useCallback((id: string) => {
-    const convo = PAST_CONVERSATIONS.find((c) => c.id === id);
-    if (!convo) return;
+  const handleSelectConversation = useCallback((id: string) => {
     if (replyTimer.current) clearTimeout(replyTimer.current);
     setTyping(false);
     resetAiReplies();
-    setMessages(convo.messages);
+    setCurrentConversation(id);
   }, []);
 
   return (
@@ -125,7 +157,18 @@ export default function Chat() {
           showsVerticalScrollIndicator={false}
         >
           {messages.map((m) => (
-            <ChatBubble key={m.id} text={m.text} from={m.from} />
+            <View
+              key={m.id}
+              onLayout={(e) => {
+                messageOffsets.current[m.id] = e.nativeEvent.layout.y;
+              }}
+            >
+              <ChatBubble
+                text={m.text}
+                from={m.from}
+                highlighted={m.id === highlightedId}
+              />
+            </View>
           ))}
           {typing && <TypingBubble />}
         </ScrollView>
@@ -149,8 +192,8 @@ export default function Chat() {
       <MenuDrawer
         visible={menuOpen}
         onClose={() => setMenuOpen(false)}
-        onSelect={loadConversation}
-        onNew={startNewChat}
+        onSelect={handleSelectConversation}
+        onNew={handleNewChat}
       />
     </View>
   );

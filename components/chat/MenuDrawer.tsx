@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -11,8 +12,9 @@ import {
   View,
 } from 'react-native';
 import { StarLogo } from '@/components/ui/StarLogo';
+import { useConversations } from '@/hooks/useConversations';
 import { useScreenInsets } from '@/hooks/useScreenInsets';
-import { PAST_CONVERSATIONS } from '@/mock/chat';
+import { getCurrentConversationId } from '@/lib/conversations';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type Props = {
@@ -22,10 +24,35 @@ type Props = {
   onNew?: () => void;
 };
 
+function previewOf(messages: { text: string; from: string }[]): string {
+  // Pick the most recent USER message as preview, else the latest AI line.
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].from === 'user') return messages[i].text;
+  }
+  return messages[messages.length - 1]?.text ?? '';
+}
+
+function formatWhen(ts: number): string {
+  const now = Date.now();
+  const diff = now - ts;
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < minute) return 'just now';
+  if (diff < hour) return `${Math.floor(diff / minute)}m`;
+  if (diff < day) return `${Math.floor(diff / hour)}h`;
+  if (diff < 2 * day) return 'Yesterday';
+  if (diff < 7 * day) return `${Math.floor(diff / day)}d ago`;
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 export function MenuDrawer({ visible, onClose, onSelect, onNew }: Props) {
   const insets = useScreenInsets();
   const slide = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(false);
+  const conversations = useConversations();
+  const currentId = getCurrentConversationId();
 
   useEffect(() => {
     if (visible) {
@@ -48,7 +75,6 @@ export function MenuDrawer({ visible, onClose, onSelect, onNew }: Props) {
     }
   }, [visible, mounted, slide]);
 
-  // Nothing in the tree at all when closed — guarantees no click interception.
   if (!mounted) return null;
 
   const translateX = slide.interpolate({
@@ -61,7 +87,10 @@ export function MenuDrawer({ visible, onClose, onSelect, onNew }: Props) {
   });
 
   return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents={visible ? 'auto' : 'none'}>
+    <View
+      style={StyleSheet.absoluteFillObject}
+      pointerEvents={visible ? 'auto' : 'none'}
+    >
       <Animated.View
         style={[styles.backdrop, { opacity: backdropOpacity }]}
         pointerEvents="auto"
@@ -85,56 +114,71 @@ export function MenuDrawer({ visible, onClose, onSelect, onNew }: Props) {
       >
         <View style={styles.headerRow}>
           <StarLogo size={28} glow={false} />
-          <Text style={styles.title}>Conversations</Text>
+          <Text style={styles.title}>Chat history</Text>
+          <Pressable
+            hitSlop={12}
+            onPress={() => {
+              onClose();
+              router.push('/(app)/search');
+            }}
+            accessibilityLabel="Search chat history"
+            style={styles.headerBtn}
+          >
+            <Ionicons name="search" size={20} color={colors.text} />
+          </Pressable>
           <Pressable
             hitSlop={12}
             onPress={onClose}
             accessibilityLabel="Close menu"
-            style={styles.closeBtn}
+            style={styles.headerBtn}
           >
             <Ionicons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
         </View>
 
+        <Pressable
+          style={styles.newChat}
+          onPress={() => {
+            onNew?.();
+            onClose();
+          }}
+          accessibilityLabel="Start a new conversation"
+        >
+          <Ionicons name="add" size={18} color={colors.text} />
+          <Text style={styles.newChatLabel}>New conversation</Text>
+        </Pressable>
+
         <ScrollView
           contentContainerStyle={{ paddingBottom: spacing.xxxl }}
           showsVerticalScrollIndicator={false}
         >
-          <Pressable
-            style={styles.newChat}
-            onPress={() => {
-              onNew?.();
-              onClose();
-            }}
-            accessibilityLabel="Start a new conversation"
-          >
-            <Ionicons name="add" size={18} color={colors.text} />
-            <Text style={styles.newChatLabel}>New conversation</Text>
-          </Pressable>
-
-          {PAST_CONVERSATIONS.map((c) => (
-            <Pressable
-              key={c.id}
-              style={({ pressed }) => [
-                styles.item,
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={() => {
-                onSelect?.(c.id);
-                onClose();
-              }}
-            >
-              <View style={styles.itemRowTop}>
-                <Text numberOfLines={1} style={styles.itemTitle}>
-                  {c.title}
+          {conversations.map((c) => {
+            const isCurrent = c.id === currentId;
+            return (
+              <Pressable
+                key={c.id}
+                style={({ pressed }) => [
+                  styles.item,
+                  isCurrent && styles.itemActive,
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() => {
+                  onSelect?.(c.id);
+                  onClose();
+                }}
+              >
+                <View style={styles.itemRowTop}>
+                  <Text numberOfLines={1} style={styles.itemTitle}>
+                    {c.title}
+                  </Text>
+                  <Text style={styles.itemWhen}>{formatWhen(c.updatedAt)}</Text>
+                </View>
+                <Text numberOfLines={1} style={styles.itemPreview}>
+                  {previewOf(c.messages)}
                 </Text>
-                <Text style={styles.itemWhen}>{c.when}</Text>
-              </View>
-              <Text numberOfLines={1} style={styles.itemPreview}>
-                {c.preview}
-              </Text>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </Animated.View>
     </View>
@@ -161,14 +205,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   title: {
     ...typography.h3,
     color: colors.text,
     flex: 1,
   },
-  closeBtn: {
+  headerBtn: {
     width: 36,
     height: 36,
     alignItems: 'center',
@@ -196,6 +240,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.sm,
+  },
+  itemActive: {
+    borderColor: colors.borderAccent,
+    backgroundColor: 'rgba(235,59,118,0.10)',
   },
   itemRowTop: {
     flexDirection: 'row',
