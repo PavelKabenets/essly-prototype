@@ -169,20 +169,19 @@ function RecordingView({
   insetBottom: number;
 }) {
   const pulse = useRef(new Animated.Value(0)).current;
-  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, {
           toValue: 1,
-          duration: 1200,
+          duration: 1400,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(pulse, {
           toValue: 0,
-          duration: 1200,
+          duration: 1400,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: Platform.OS !== 'web',
         }),
@@ -195,76 +194,74 @@ function RecordingView({
   // Auto-finish after a max recording time (unless paused / already stopped)
   useEffect(() => {
     if (paused) return;
-    const tick = setInterval(() => setElapsed((e) => e + 100), 100);
     const auto = setTimeout(onStop, RECORDING_AUTO_FINISH_MS);
-    return () => {
-      clearInterval(tick);
-      clearTimeout(auto);
-    };
+    return () => clearTimeout(auto);
   }, [paused, onStop]);
 
   const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
-  const seconds = Math.floor(elapsed / 1000);
-  const ms = Math.floor((elapsed % 1000) / 100);
+  const haloOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.65, 1] });
 
   return (
-    <View style={[styles.content, { paddingTop: insetTop + spacing.xxxl }]}>
-      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-        <LinearGradient
-          colors={['rgba(11,12,16,0)', 'rgba(11,12,16,0)', '#ED3E77']}
-          locations={[0, 0.55, 1]}
-          style={StyleSheet.absoluteFillObject}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-        />
+    <View style={styles.recRoot}>
+      {/* Soft radial pink glow at bottom-center (matches Figma) */}
+      <View style={styles.recGlowWrap} pointerEvents="none">
+        <View style={styles.recGlow} />
       </View>
 
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <StarLogo size={64} glow />
-      </Animated.View>
+      <View style={[styles.recContent, { paddingTop: insetTop + spacing.xxxl }]}>
+        <Animated.View style={{ transform: [{ scale }], marginTop: spacing.xl }}>
+          <StarLogo size={64} glow />
+        </Animated.View>
 
-      <View style={styles.lyricWrap}>
-        <Text style={styles.lyric}>
-          {`You don't talk to it,\nyou talk to yourself through it.`}
-        </Text>
-      </View>
+        <View style={styles.lyricWrap}>
+          <Text style={styles.lyric}>
+            {`You don't talk to it,\nyou talk to yourself through it.`}
+          </Text>
+        </View>
 
-      <View style={styles.timer}>
-        <Text style={styles.timerText}>
-          {seconds < 10 ? `0${seconds}` : seconds}.{ms}s
-        </Text>
-      </View>
+        <View style={styles.spacer} />
 
-      <View style={styles.spacer} />
+        {/* Thin separator line above the mic pill */}
+        <View style={styles.separator} />
 
-      <View style={[styles.bottomBar, { paddingBottom: insetBottom + spacing.lg }]}>
-        <View style={styles.bottomRow}>
+        {/* Glassy mic pill with pink halo behind */}
+        <Pressable
+          onPress={onStop}
+          accessibilityLabel="Stop recording"
+          style={({ pressed }) => [styles.micWrap, pressed && { opacity: 0.85 }]}
+        >
+          <Animated.View style={[styles.micHalo, { opacity: haloOpacity }]} />
+          <View style={styles.micPill}>
+            <Ionicons name="mic" size={22} color={colors.text} />
+          </View>
+        </Pressable>
+
+        {/* Bottom corners: cancel + pause/resume */}
+        <View
+          style={[
+            styles.recCorners,
+            { paddingBottom: insetBottom + spacing.md },
+          ]}
+        >
           <Pressable
             onPress={onCancel}
             accessibilityLabel="Cancel recording"
             hitSlop={12}
-            style={styles.smallBtn}
+            style={styles.cornerBtn}
           >
             <Ionicons name="close" size={22} color={colors.iconStroke} />
           </Pressable>
-
-          <Pressable
-            onPress={onStop}
-            accessibilityLabel="Stop recording"
-            style={({ pressed }) => [styles.stopBtn, pressed && { opacity: 0.85 }]}
-          >
-            <View style={styles.stopInner}>
-              <Ionicons name="stop" size={22} color={colors.text} />
-            </View>
-          </Pressable>
-
           <Pressable
             onPress={onTogglePause}
             accessibilityLabel={paused ? 'Resume' : 'Pause'}
             hitSlop={12}
-            style={styles.smallBtn}
+            style={styles.cornerBtn}
           >
-            <Ionicons name={paused ? 'play' : 'pause'} size={22} color={colors.iconStroke} />
+            <Ionicons
+              name={paused ? 'play' : 'pause'}
+              size={22}
+              color={colors.iconStroke}
+            />
           </Pressable>
         </View>
       </View>
@@ -472,59 +469,98 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Recording
+  // Recording — Figma layout
+  recRoot: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  recContent: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  recGlowWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '50%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  recGlow: {
+    width: 520,
+    height: 360,
+    borderRadius: 9999,
+    backgroundColor: '#EB3B76',
+    opacity: 0.45,
+    marginBottom: -160,
+    ...(Platform.OS === 'web' ? ({ filter: 'blur(80px)' } as any) : {}),
+  },
   lyricWrap: { marginTop: spacing.xxl, alignItems: 'center' },
   lyric: {
     ...typography.lyric,
-    color: colors.lavenderText,
+    color: '#DFC5CD',
     textAlign: 'center',
+    ...(Platform.OS === 'web'
+      ? ({
+          backgroundImage:
+            'linear-gradient(90deg, #6B5C8A 0%, #FFE4EA 50%, #6B5C8A 100%)',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          color: 'transparent',
+        } as any)
+      : {}),
   },
-  timer: {
-    marginTop: spacing.xl,
+  separator: {
+    width: 280,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    marginBottom: spacing.md,
   },
-  timerText: {
-    ...typography.h3,
-    color: colors.pink,
-    fontVariant: ['tabular-nums'],
-  },
-  bottomBar: {
-    width: '100%',
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-  },
-  bottomRow: {
-    flexDirection: 'row',
+  micWrap: {
+    width: 140,
+    height: 64,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
   },
-  smallBtn: {
+  micHalo: {
+    position: 'absolute',
+    width: 140,
+    height: 36,
+    borderRadius: 9999,
+    backgroundColor: '#EB3B76',
+    ...(Platform.OS === 'web' ? ({ filter: 'blur(14px)' } as any) : {}),
+  },
+  micPill: {
+    width: 92,
+    height: 52,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(70, 20, 38, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web'
+      ? ({
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        } as any)
+      : {}),
+  },
+  recCorners: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+  },
+  cornerBtn: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  stopBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.pink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.pink,
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 0 },
-    ...(Platform.OS === 'web' ? ({ boxShadow: '0 0 32px rgba(235,59,118,0.5)' } as any) : {}),
-  },
-  stopInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.18)',
   },
 
   // Processing
