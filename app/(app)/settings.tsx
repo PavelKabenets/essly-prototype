@@ -46,19 +46,30 @@ export default function Settings() {
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
 
+        <Text style={styles.sectionTitle}>ACCOUNT</Text>
         <Section>
           <Row
             icon="lock-closed-outline"
             label="Security & Authentication"
             onPress={() => router.push('/(app)/security')}
           />
+          <Row icon="notifications-outline" label="Notifications" disabled />
+          <Row icon="language-outline" label="Language" value="English" disabled last />
+        </Section>
+
+        <Text style={styles.sectionTitle}>AI</Text>
+        <Section>
+          <Row
+            icon="sparkles-outline"
+            label="AI Personalization"
+            onPress={() => router.push('/(app)/ai-personalization')}
+          />
           <Row
             icon="sunny-outline"
             label="Ritual Modes"
             onPress={() => router.push('/(app)/ritual-modes')}
+            last
           />
-          <Row icon="notifications-outline" label="Notifications" disabled />
-          <Row icon="language-outline" label="Language" value="English" disabled last />
         </Section>
 
         <Section>
@@ -153,7 +164,14 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   content: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
+  },
+  sectionTitle: {
+    ...typography.caption,
+    color: colors.textMuted,
+    letterSpacing: 1.5,
+    marginLeft: spacing.md,
+    marginTop: spacing.sm,
   },
 
   // Profile

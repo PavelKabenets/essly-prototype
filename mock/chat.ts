@@ -1,3 +1,5 @@
+import { getAiPrefs, type AiMode } from '@/lib/aiPrefs';
+
 export type Message = {
   id: string;
   from: 'user' | 'ai';
@@ -10,53 +12,115 @@ export const AI_WELCOME: Message = {
   text: "I'm here. We can start small — what's on your mind right now?",
 };
 
-// Keyword-aware reply selection (cheap pseudo-context to mimic "AI analyzes
-// conversation context, user preferences, behavioral patterns").
-const REPLIES = {
-  heavy: [
-    'That sounds like a lot to carry. You\'re not alone in this.',
-    'Take your time. There\'s no need to wrap it up neatly.',
-    'I notice the weight in what you said. We can sit with it together for a moment.',
-  ],
-  question: [
-    "I don't have a single answer, but I can think it through with you. What's pulling at you most?",
-    'A good question to bring here. What feels true when you ask it quietly?',
-    "Let's stay with the question for a beat. Where did it come from?",
-  ],
-  positive: [
-    'I love hearing this. What part of it do you want to hold on to?',
-    'That\'s a soft, good thing. Worth marking.',
-    'There\'s a lightness in how you said that. Stay with it.',
-  ],
-  reflective: [
-    'Whatever you say next, there\'s no wrong direction.',
-    'Take your time. I\'m here as long as you need.',
-    'What part of that feels heaviest right now?',
-    'You found the words. That counts.',
-    'I noticed a softness in how you said that. Stay with it for a moment.',
-  ],
+// Keyword-aware reply selection. Three reply "moods" — Active, Balanced,
+// Introspective — that match the user's AI Personalization preference.
+
+type Bucket = 'heavy' | 'question' | 'positive' | 'reflective';
+
+const REPLIES: Record<AiMode, Record<Bucket, string[]>> = {
+  balanced: {
+    heavy: [
+      "That sounds like a lot to carry. You're not alone in this.",
+      "Take your time. There's no need to wrap it up neatly.",
+      'I notice the weight in what you said. We can sit with it together for a moment.',
+    ],
+    question: [
+      "I don't have a single answer, but I can think it through with you. What's pulling at you most?",
+      'A good question to bring here. What feels true when you ask it quietly?',
+      "Let's stay with the question for a beat. Where did it come from?",
+    ],
+    positive: [
+      'I love hearing this. What part of it do you want to hold on to?',
+      "That's a soft, good thing. Worth marking.",
+      "There's a lightness in how you said that. Stay with it.",
+    ],
+    reflective: [
+      "Whatever you say next, there's no wrong direction.",
+      "Take your time. I'm here as long as you need.",
+      'What part of that feels heaviest right now?',
+      'You found the words. That counts.',
+      'I noticed a softness in how you said that. Stay with it for a moment.',
+    ],
+  },
+
+  active: {
+    heavy: [
+      "Heavy is real. What's one tiny thing you could do for yourself in the next ten minutes?",
+      "Okay — let's name it. What's the loudest piece of this right now?",
+      "Got it. Want to break this down together — what would help even 1% today?",
+    ],
+    question: [
+      "Good question. Gut answer first — what comes up immediately?",
+      "Let's figure it out. What would you tell a friend who asked you the same thing?",
+      "Cool, let's dig in. If you had to pick a direction right now, which way are you leaning?",
+    ],
+    positive: [
+      "Love that! What's the next move?",
+      "Yes — keep going with that. What does the next hour look like?",
+      "Great. Anything you want to build on this moment?",
+    ],
+    reflective: [
+      "Tell me more — what's underneath it?",
+      "Okay, let's keep this going. What's the next thing you want to put down?",
+      "I'm with you. What feels most alive in this right now?",
+      "Stay with that. What's the next thread you want to pull?",
+    ],
+  },
+
+  introspective: {
+    heavy: [
+      'Stay with it. No need to fix anything yet.',
+      "Heavy is allowed to be heavy. Breathe with it.",
+      "You don't have to explain it. I see it.",
+    ],
+    question: [
+      'Sit with the question. Sometimes that is the work.',
+      "You don't need an answer to be okay.",
+      'The question may shift if you give it space.',
+    ],
+    positive: [
+      'Let it be enough, just as it is.',
+      'Hold this one quietly for a moment.',
+      "Notice how it feels in your body, with no need to do anything.",
+    ],
+    reflective: [
+      'Breathe. No need to fill the silence.',
+      "There's nothing you have to add.",
+      'Take all the room you need.',
+      "Stay here as long as it's useful.",
+    ],
+  },
 };
 
 const HEAVY = ['sad', 'tired', 'anxious', 'stressed', 'lost', 'lonely', 'hurt', 'heavy', 'overwhelm', 'broken', 'cry', 'numb', 'stuck'];
 const POSITIVE = ['happy', 'good', 'great', 'better', 'love', 'excited', 'grateful', 'calm', 'proud', 'peace'];
 
-let cycle = { heavy: 0, question: 0, positive: 0, reflective: 0 };
+let cycle: Record<AiMode, Record<Bucket, number>> = {
+  balanced: { heavy: 0, question: 0, positive: 0, reflective: 0 },
+  active: { heavy: 0, question: 0, positive: 0, reflective: 0 },
+  introspective: { heavy: 0, question: 0, positive: 0, reflective: 0 },
+};
 
 export function pickAiReply(userText: string): string {
   const t = userText.toLowerCase();
-  let bucket: keyof typeof REPLIES = 'reflective';
+  let bucket: Bucket = 'reflective';
   if (t.includes('?')) bucket = 'question';
   else if (HEAVY.some((w) => t.includes(w))) bucket = 'heavy';
   else if (POSITIVE.some((w) => t.includes(w))) bucket = 'positive';
 
-  const arr = REPLIES[bucket];
-  const reply = arr[cycle[bucket] % arr.length];
-  cycle[bucket] += 1;
+  const mode = getAiPrefs().mode;
+  const arr = REPLIES[mode][bucket];
+  const reply = arr[cycle[mode][bucket] % arr.length];
+  cycle[mode][bucket] += 1;
   return reply;
 }
 
 export function resetAiReplies() {
-  cycle = { heavy: 0, question: 0, positive: 0, reflective: 0 };
+  cycle = {
+    balanced: { heavy: 0, question: 0, positive: 0, reflective: 0 },
+    active: { heavy: 0, question: 0, positive: 0, reflective: 0 },
+    introspective: { heavy: 0, question: 0, positive: 0, reflective: 0 },
+  };
 }
 
 // Canned "transcripts" — each tap of Re-record cycles to a new one.
