@@ -5,8 +5,8 @@ import { markRitualSent, type RitualConfig, type RitualKind } from '@/lib/ritual
 import { nextRitualMessage } from '@/mock/ritualMessages';
 
 const TITLE: Record<RitualKind, string> = {
-  morning: 'Essly · Morning Alignment',
-  evening: 'Essly · Evening Wind Down',
+  morning: 'Eesly · Morning Alignment',
+  evening: 'Eesly · Evening Wind Down',
 };
 
 function todayISO() {

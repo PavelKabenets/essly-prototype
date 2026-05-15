@@ -14,7 +14,7 @@ export type Profile = {
 const DEFAULTS: Profile = {
   firstName: 'Demo',
   lastName: 'User',
-  email: 'demo@essly.app',
+  email: 'demo@eesly.app',
   bio: '',
 };
 

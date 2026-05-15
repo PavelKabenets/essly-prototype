@@ -55,7 +55,7 @@ export default function Splash() {
       </Animated.View>
       <View style={styles.wordmarkWrap}>
         <Animated.Text style={[styles.wordmark, { opacity }]}>
-          Essly
+          Eesly
         </Animated.Text>
       </View>
     </Pressable>

@@ -21,7 +21,7 @@ type Props = {
   onAuthenticated: (existingUser: boolean) => void;
 };
 
-const REAL_EMAIL = 'demo@essly.app';
+const REAL_EMAIL = 'demo@eesly.app';
 const RELAY_EMAIL = 'abc123xyz@privaterelay.appleid.com';
 
 export function AppleAuthSheet({ visible, onClose, onAuthenticated }: Props) {
@@ -98,7 +98,7 @@ export function AppleAuthSheet({ visible, onClose, onAuthenticated }: Props) {
             <Text style={styles.title}>Sign in with Apple</Text>
 
             <View style={styles.appCard}>
-              <Text style={styles.appCardLabel}>Essly</Text>
+              <Text style={styles.appCardLabel}>Eesly</Text>
               <Text style={styles.appCardSub}>essly-prototype.vercel.app</Text>
             </View>
 
@@ -114,7 +114,7 @@ export function AppleAuthSheet({ visible, onClose, onAuthenticated }: Props) {
             <Ionicons name="logo-apple" size={28} color="#FFFFFF" />
             <Text style={styles.title}>Share your email</Text>
             <Text style={styles.subtitle}>
-              Essly will receive your name and email address.
+              Eesly will receive your name and email address.
             </Text>
 
             <View style={styles.optionList}>

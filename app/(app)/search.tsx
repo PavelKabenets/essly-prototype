@@ -124,7 +124,7 @@ export default function Search() {
                       ]}
                     >
                       <Text style={styles.fromBadgeLabel}>
-                        {r.message.from === 'user' ? 'You' : 'Essly'}
+                        {r.message.from === 'user' ? 'You' : 'Eesly'}
                       </Text>
                     </View>
                     <Ionicons

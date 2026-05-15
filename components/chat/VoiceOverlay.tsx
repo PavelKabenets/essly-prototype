@@ -124,10 +124,10 @@ function PermissionDialog({ onAllow, onDeny }: { onAllow: () => void; onDeny: ()
       <View style={styles.permBackdrop} />
       <View style={styles.permPanel}>
         <Text style={styles.permTitle}>
-          {'"Essly" Would Like to Access the Microphone'}
+          {'"Eesly" Would Like to Access the Microphone'}
         </Text>
         <Text style={styles.permBody}>
-          Essly uses your microphone so you can record voice messages.
+          Eesly uses your microphone so you can record voice messages.
           Recordings are transcribed to text before sending.
         </Text>
         <View style={styles.permDivider} />

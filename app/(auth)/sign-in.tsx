@@ -14,7 +14,7 @@ import { useAuthPrefs } from '@/hooks/useAuthPrefs';
 import { useOSDetect } from '@/hooks/useOSDetect';
 import { colors, spacing, typography } from '@/theme';
 
-const DEMO_EMAIL = 'demo@essly.app';
+const DEMO_EMAIL = 'demo@eesly.app';
 const DEMO_PASS = 'demo123';
 
 export default function SignIn() {

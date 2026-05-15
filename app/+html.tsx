@@ -11,10 +11,10 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
         />
-        <title>Essly — talk to yourself through it</title>
+        <title>Eesly — talk to yourself through it</title>
         <meta
           name="description"
-          content="Essly is an AI companion for the messy in-between moments. A clickable prototype of the mobile app."
+          content="Eesly is an AI companion for the messy in-between moments. A clickable prototype of the mobile app."
         />
 
         <meta name="theme-color" content="#000000" />
@@ -24,9 +24,9 @@ export default function Root({ children }: PropsWithChildren) {
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <meta name="apple-mobile-web-app-title" content="Essly" />
+        <meta name="apple-mobile-web-app-title" content="Eesly" />
 
-        <meta property="og:title" content="Essly" />
+        <meta property="og:title" content="Eesly" />
         <meta
           property="og:description"
           content="A quiet place to talk to yourself."

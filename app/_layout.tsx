@@ -34,7 +34,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      document.title = 'Essly';
+      document.title = 'Eesly';
       document.body.style.backgroundColor = '#0A0A0C';
       document.body.style.margin = '0';
     }

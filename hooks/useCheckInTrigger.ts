@@ -89,7 +89,7 @@ export function useCheckInTrigger(onDeliver: (text: string) => void) {
       setCooldown(trigger, now + COOLDOWN_MS[trigger] * multiplier);
       recordCheckInDelivery(trigger);
       if (p.push) {
-        fireBrowserNotification('Essly · Mindful check-in', msg);
+        fireBrowserNotification('Eesly · Mindful check-in', msg);
       }
       onDeliverRef.current(msg);
     };

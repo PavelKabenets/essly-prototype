@@ -24,6 +24,10 @@ export type SearchResult = {
 
 let conversations: Conversation[] | null = null;
 let currentId: string | null = null;
+// Cached sorted view — invalidated on every mutation. Without this,
+// useSyncExternalStore receives a new array reference every render and
+// loops forever.
+let sortedCache: Conversation[] | null = null;
 const listeners = new Set<() => void>();
 
 function seedDefaults(): { convs: Conversation[]; current: string } {
@@ -81,6 +85,7 @@ function persist() {
 }
 
 function notify() {
+  sortedCache = null;
   listeners.forEach((l) => l());
 }
 
@@ -97,7 +102,12 @@ function deriveTitle(messages: Message[]): string {
 
 export function getConversations(): Conversation[] {
   hydrate();
-  return [...(conversations ?? [])].sort((a, b) => b.updatedAt - a.updatedAt);
+  if (sortedCache === null) {
+    sortedCache = [...(conversations ?? [])].sort(
+      (a, b) => b.updatedAt - a.updatedAt,
+    );
+  }
+  return sortedCache;
 }
 
 export function getConversation(id: string): Conversation | undefined {

@@ -28,7 +28,7 @@ const MOCK_ACCOUNTS: Account[] = [
   {
     id: '2',
     name: 'Demo User',
-    email: 'demo@essly.app',
+    email: 'demo@eesly.app',
     initials: 'DU',
     existing: true,
   },
@@ -83,7 +83,7 @@ export function GoogleAuthSheet({ visible, onClose, onAuthenticated }: Props) {
         {step === 'pick' && (
           <View style={styles.body}>
             <Text style={styles.title}>Choose an account</Text>
-            <Text style={styles.subtitle}>to continue to Essly</Text>
+            <Text style={styles.subtitle}>to continue to Eesly</Text>
 
             {MOCK_ACCOUNTS.map((acc) => (
               <Pressable
@@ -123,7 +123,7 @@ export function GoogleAuthSheet({ visible, onClose, onAuthenticated }: Props) {
             </View>
             <Text style={styles.title}>Continue as {selected.name.split(' ')[0]}?</Text>
             <Text style={styles.permissionSub}>
-              Essly wants access to your name, email address, language preference, and profile picture.
+              Eesly wants access to your name, email address, language preference, and profile picture.
             </Text>
 
             <View style={styles.permissionList}>
